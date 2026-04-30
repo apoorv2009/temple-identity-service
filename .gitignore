@@ -5,4 +5,7 @@ dist/
 build/
 *.pyc
 .env
-
+*.db
+*.sqlite3
+*.egg-info/
+*.log

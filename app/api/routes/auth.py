@@ -1,17 +1,35 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
-from app.schemas.auth import RefreshRequest, SignInRequest, SignInResponse, SignOutRequest
+from app.schemas.auth import (
+    BulkTempleAdminProvisionRequest,
+    BulkTempleAdminProvisionResponse,
+    RefreshRequest,
+    SignInRequest,
+    SignInResponse,
+    SignOutRequest,
+    SignUpRequest,
+    SignUpResponse,
+    UserProfileResponse,
+)
+from app.services.identity import DEFAULT_ADMIN_PASSWORD, identity_store
 
 router = APIRouter()
 
 
+@router.post("/signup", response_model=SignUpResponse)
+async def signup(payload: SignUpRequest) -> SignUpResponse:
+    try:
+        return identity_store.sign_up(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.post("/signin", response_model=SignInResponse)
 async def signin(payload: SignInRequest) -> SignInResponse:
-    return SignInResponse(
-        access_token=f"stub-access-token-for-{payload.contact_number}",
-        refresh_token=f"stub-refresh-token-for-{payload.contact_number}",
-        role="devotee",
-    )
+    try:
+        return identity_store.sign_in(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 @router.post("/refresh")
@@ -19,7 +37,7 @@ async def refresh(payload: RefreshRequest) -> dict[str, str]:
     return {
         "access_token": f"rotated-{payload.refresh_token}",
         "token_type": "bearer",
-        "phase": "scaffold",
+        "phase": "app_access",
     }
 
 
@@ -31,10 +49,27 @@ async def signout(payload: SignOutRequest) -> dict[str, str]:
 @router.get("/me")
 async def me() -> dict[str, object]:
     return {
-        "id": "devotee-001",
-        "name": "Scaffold User",
-        "role": "devotee",
-        "contact_number_masked": "98XXXXXX10",
-        "phase": "scaffold",
+        "bootstrap_admin_password_hint": DEFAULT_ADMIN_PASSWORD,
+        "phase": "app_access",
     }
 
+
+@router.get("/internal/users/{user_id}", response_model=UserProfileResponse)
+async def get_user_profile(user_id: str) -> UserProfileResponse:
+    profile = identity_store.get_profile(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return profile
+
+
+@router.post(
+    "/internal/temple-admins/bulk",
+    response_model=BulkTempleAdminProvisionResponse,
+)
+async def provision_temple_admins(
+    payload: BulkTempleAdminProvisionRequest,
+) -> BulkTempleAdminProvisionResponse:
+    try:
+        return identity_store.provision_temple_admins(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
