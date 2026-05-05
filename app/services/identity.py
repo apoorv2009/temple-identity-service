@@ -15,7 +15,7 @@ from app.schemas.auth import (
     UserProfileResponse,
 )
 
-DEFAULT_ADMIN_PASSWORD = "TempleAdmin@123"
+DEFAULT_ADMIN_PASSWORD = "12345678"
 
 
 def _normalize_contact_number(value: str) -> str:
@@ -99,6 +99,7 @@ class IdentityStore:
                     existing.display_name = admin.name.strip()
                     existing.temple_id = payload.temple_id
                     existing.temple_name = payload.temple_name.strip()
+                    existing.password_hash = self._hasher.hash(DEFAULT_ADMIN_PASSWORD)
                     continue
 
                 user = User(
