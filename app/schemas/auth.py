@@ -76,6 +76,11 @@ class UserProfileResponse(BaseModel):
     phase: str = "app_access"
 
 
+class TempleUserLookupResponse(BaseModel):
+    items: list[UserProfileResponse]
+    phase: str = "app_access"
+
+
 class PushTokenRegisterRequest(BaseModel):
     user_id: str = Field(..., min_length=3, max_length=32)
     expo_push_token: str = Field(..., min_length=10, max_length=255)

@@ -21,6 +21,7 @@ from app.schemas.auth import (
     SignInResponse,
     SignUpRequest,
     SignUpResponse,
+    TempleUserLookupResponse,
     UserProfileResponse,
 )
 
@@ -252,6 +253,35 @@ class IdentityStore:
                         platform=item.platform,  # type: ignore[arg-type]
                         device_label=item.device_label,
                         is_active=item.is_active,
+                    )
+                    for item in items
+                ],
+            )
+
+    def list_users_by_temple(
+        self,
+        *,
+        temple_id: str,
+        role: str | None = None,
+    ) -> TempleUserLookupResponse:
+        with SessionLocal() as session:
+            query = select(User).where(User.temple_id == temple_id)
+            if role is not None:
+                query = query.where(User.role == role)
+
+            items = session.scalars(query.order_by(User.display_name.asc())).all()
+            return TempleUserLookupResponse(
+                items=[
+                    UserProfileResponse(
+                        user_id=item.user_id,
+                        role=item.role,  # type: ignore[arg-type]
+                        display_name=item.display_name,
+                        contact_number=item.contact_number,
+                        native_city=item.native_city,
+                        local_area=item.local_area,
+                        occupation=item.occupation,
+                        temple_id=item.temple_id,
+                        temple_name=item.temple_name,
                     )
                     for item in items
                 ],

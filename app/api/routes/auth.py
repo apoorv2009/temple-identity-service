@@ -16,6 +16,7 @@ from app.schemas.auth import (
     SignOutRequest,
     SignUpRequest,
     SignUpResponse,
+    TempleUserLookupResponse,
     UserProfileResponse,
 )
 from app.services.identity import DEFAULT_ADMIN_PASSWORD, identity_store
@@ -83,6 +84,14 @@ async def get_user_profile(user_id: str) -> UserProfileResponse:
     if profile is None:
         raise HTTPException(status_code=404, detail="User not found")
     return profile
+
+
+@router.get("/internal/users/by-temple", response_model=TempleUserLookupResponse)
+async def list_users_by_temple(
+    temple_id: str,
+    role: str | None = None,
+) -> TempleUserLookupResponse:
+    return identity_store.list_users_by_temple(temple_id=temple_id, role=role)
 
 
 @router.post(
