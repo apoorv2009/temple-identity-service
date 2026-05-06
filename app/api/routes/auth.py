@@ -3,6 +3,11 @@ from fastapi import APIRouter, HTTPException
 from app.schemas.auth import (
     BulkTempleAdminProvisionRequest,
     BulkTempleAdminProvisionResponse,
+    PushTokenDeactivateRequest,
+    PushTokenLookupRequest,
+    PushTokenLookupResponse,
+    PushTokenRegisterRequest,
+    PushTokenRegisterResponse,
     RefreshRequest,
     SignInRequest,
     SignInResponse,
@@ -46,6 +51,22 @@ async def signout(payload: SignOutRequest) -> dict[str, str]:
     return {"status": "accepted", "refresh_token": payload.refresh_token}
 
 
+@router.post("/push-tokens/register", response_model=PushTokenRegisterResponse)
+async def register_push_token(
+    payload: PushTokenRegisterRequest,
+) -> PushTokenRegisterResponse:
+    try:
+        return identity_store.register_push_token(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/push-tokens/deactivate")
+async def deactivate_push_token(payload: PushTokenDeactivateRequest) -> dict[str, str]:
+    identity_store.deactivate_push_token(payload.user_id, payload.expo_push_token)
+    return {"status": "accepted"}
+
+
 @router.get("/me")
 async def me() -> dict[str, object]:
     return {
@@ -73,3 +94,13 @@ async def provision_temple_admins(
         return identity_store.provision_temple_admins(payload)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post(
+    "/internal/push-tokens/by-users",
+    response_model=PushTokenLookupResponse,
+)
+async def lookup_push_tokens(
+    payload: PushTokenLookupRequest,
+) -> PushTokenLookupResponse:
+    return identity_store.get_push_tokens_for_users(payload)

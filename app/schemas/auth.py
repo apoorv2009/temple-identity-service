@@ -74,3 +74,43 @@ class UserProfileResponse(BaseModel):
     temple_id: str | None = None
     temple_name: str | None = None
     phase: str = "app_access"
+
+
+class PushTokenRegisterRequest(BaseModel):
+    user_id: str = Field(..., min_length=3, max_length=32)
+    expo_push_token: str = Field(..., min_length=10, max_length=255)
+    platform: Literal["android", "ios"]
+    device_label: str | None = Field(default=None, max_length=120)
+
+
+class PushTokenRegisterResponse(BaseModel):
+    token_id: str
+    user_id: str
+    expo_push_token: str
+    platform: Literal["android", "ios"]
+    is_active: bool = True
+    phase: str = "push_notifications"
+
+
+class PushTokenDeactivateRequest(BaseModel):
+    user_id: str = Field(..., min_length=3, max_length=32)
+    expo_push_token: str = Field(..., min_length=10, max_length=255)
+
+
+class PushTokenLookupRequest(BaseModel):
+    user_ids: list[str] = Field(..., min_length=1)
+
+
+class PushTokenItem(BaseModel):
+    token_id: str
+    user_id: str
+    expo_push_token: str
+    platform: Literal["android", "ios"]
+    device_label: str | None = None
+    is_active: bool = True
+    phase: str = "push_notifications"
+
+
+class PushTokenLookupResponse(BaseModel):
+    items: list[PushTokenItem]
+    phase: str = "push_notifications"
