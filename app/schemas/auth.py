@@ -114,3 +114,16 @@ class PushTokenItem(BaseModel):
 class PushTokenLookupResponse(BaseModel):
     items: list[PushTokenItem]
     phase: str = "push_notifications"
+
+
+class DevoteeTempleAssignmentRequest(BaseModel):
+    user_id: str = Field(..., min_length=3, max_length=32)
+    temple_id: str = Field(..., min_length=3, max_length=20)
+    temple_name: str = Field(..., min_length=2, max_length=120)
+
+
+class DevoteeTempleAssignmentResponse(BaseModel):
+    user_id: str
+    temple_id: str
+    temple_name: str
+    phase: str = "app_access"

@@ -10,6 +10,8 @@ from app.models import User, UserPushToken
 from app.schemas.auth import (
     BulkTempleAdminProvisionRequest,
     BulkTempleAdminProvisionResponse,
+    DevoteeTempleAssignmentRequest,
+    DevoteeTempleAssignmentResponse,
     PushTokenItem,
     PushTokenLookupRequest,
     PushTokenLookupResponse,
@@ -144,6 +146,28 @@ class IdentityStore:
                 native_city=user.native_city,
                 local_area=user.local_area,
                 occupation=user.occupation,
+                temple_id=user.temple_id,
+                temple_name=user.temple_name,
+            )
+
+    def assign_temple_to_devotee(
+        self,
+        payload: DevoteeTempleAssignmentRequest,
+    ) -> DevoteeTempleAssignmentResponse:
+        with SessionLocal() as session:
+            user = session.scalar(select(User).where(User.user_id == payload.user_id))
+            if user is None:
+                raise ValueError("User not found")
+            if user.role != "devotee":
+                raise ValueError("Temple assignment is only supported for devotee users")
+
+            user.temple_id = payload.temple_id
+            user.temple_name = payload.temple_name.strip()
+            session.commit()
+            session.refresh(user)
+
+            return DevoteeTempleAssignmentResponse(
+                user_id=user.user_id,
                 temple_id=user.temple_id,
                 temple_name=user.temple_name,
             )

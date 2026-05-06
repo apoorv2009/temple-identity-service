@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException
 from app.schemas.auth import (
     BulkTempleAdminProvisionRequest,
     BulkTempleAdminProvisionResponse,
+    DevoteeTempleAssignmentRequest,
+    DevoteeTempleAssignmentResponse,
     PushTokenDeactivateRequest,
     PushTokenLookupRequest,
     PushTokenLookupResponse,
@@ -104,3 +106,16 @@ async def lookup_push_tokens(
     payload: PushTokenLookupRequest,
 ) -> PushTokenLookupResponse:
     return identity_store.get_push_tokens_for_users(payload)
+
+
+@router.post(
+    "/internal/devotees/assign-temple",
+    response_model=DevoteeTempleAssignmentResponse,
+)
+async def assign_temple_to_devotee(
+    payload: DevoteeTempleAssignmentRequest,
+) -> DevoteeTempleAssignmentResponse:
+    try:
+        return identity_store.assign_temple_to_devotee(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
