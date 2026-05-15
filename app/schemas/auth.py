@@ -16,6 +16,7 @@ class SignUpResponse(BaseModel):
     user_id: str
     role: Literal["devotee"] = "devotee"
     status: Literal["active"] = "active"
+    temporary_password_hint: str | None = None
     phase: str = "app_access"
 
 
@@ -33,7 +34,29 @@ class SignInResponse(BaseModel):
     display_name: str
     temple_id: str | None = None
     temple_name: str | None = None
+    must_change_password: bool = False
     phase: str = "app_access"
+
+
+class ChangePasswordRequest(BaseModel):
+    user_id: str = Field(..., min_length=3, max_length=32)
+    current_password: str = Field(..., min_length=8, max_length=128)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class ChangePasswordResponse(BaseModel):
+    user_id: str
+    must_change_password: bool = False
+    phase: str = "app_access"
+
+
+class ReferredDevoteeSignUpRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    contact_number: str = Field(..., min_length=10, max_length=20)
+    native_city: str = Field(..., min_length=2, max_length=100)
+    local_area: str = Field(..., min_length=2, max_length=100)
+    occupation: str = Field(..., min_length=2, max_length=100)
+    temporary_password: str = Field(..., min_length=8, max_length=128)
 
 
 class RefreshRequest(BaseModel):
@@ -73,6 +96,18 @@ class UserProfileResponse(BaseModel):
     occupation: str | None = None
     temple_id: str | None = None
     temple_name: str | None = None
+    must_change_password: bool = False
+    phase: str = "app_access"
+
+
+class UserLookupByContactResponse(BaseModel):
+    user_id: str
+    role: Literal["devotee", "admin"]
+    display_name: str
+    contact_number: str
+    temple_id: str | None = None
+    temple_name: str | None = None
+    must_change_password: bool = False
     phase: str = "app_access"
 
 

@@ -10,9 +10,12 @@ from app.models import User, UserPushToken
 from app.schemas.auth import (
     BulkTempleAdminProvisionRequest,
     BulkTempleAdminProvisionResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
     DevoteeTempleAssignmentRequest,
     DevoteeTempleAssignmentResponse,
     PushTokenItem,
+    ReferredDevoteeSignUpRequest,
     PushTokenLookupRequest,
     PushTokenLookupResponse,
     PushTokenRegisterRequest,
@@ -22,6 +25,7 @@ from app.schemas.auth import (
     SignUpRequest,
     SignUpResponse,
     TempleUserLookupResponse,
+    UserLookupByContactResponse,
     UserProfileResponse,
 )
 
@@ -56,6 +60,7 @@ class IdentityStore:
                 native_city=payload.native_city.strip(),
                 local_area=payload.local_area.strip(),
                 occupation=payload.occupation.strip(),
+                must_change_password=False,
             )
             session.add(user)
             session.flush()
@@ -64,6 +69,41 @@ class IdentityStore:
             session.refresh(user)
 
             return SignUpResponse(user_id=user.user_id)
+
+    def create_referred_devotee(
+        self,
+        payload: ReferredDevoteeSignUpRequest,
+    ) -> SignUpResponse:
+        normalized_contact = _normalize_contact_number(payload.contact_number)
+
+        with SessionLocal() as session:
+            existing = session.scalar(
+                select(User).where(User.contact_number == normalized_contact),
+            )
+            if existing is not None:
+                raise ValueError("User already exists with this contact number")
+
+            user = User(
+                user_id="pending",
+                role="devotee",
+                display_name=payload.name.strip(),
+                contact_number=normalized_contact,
+                password_hash=self._hasher.hash(payload.temporary_password),
+                native_city=payload.native_city.strip(),
+                local_area=payload.local_area.strip(),
+                occupation=payload.occupation.strip(),
+                must_change_password=True,
+            )
+            session.add(user)
+            session.flush()
+            user.user_id = self._format_user_id(user.id)
+            session.commit()
+            session.refresh(user)
+
+            return SignUpResponse(
+                user_id=user.user_id,
+                temporary_password_hint=payload.temporary_password,
+            )
 
     def sign_in(self, payload: SignInRequest) -> SignInResponse:
         normalized_contact = _normalize_contact_number(payload.contact_number)
@@ -88,7 +128,29 @@ class IdentityStore:
                 display_name=user.display_name,
                 temple_id=user.temple_id,
                 temple_name=user.temple_name,
+                must_change_password=user.must_change_password,
             )
+
+    def change_password(
+        self,
+        payload: ChangePasswordRequest,
+    ) -> ChangePasswordResponse:
+        with SessionLocal() as session:
+            user = session.scalar(select(User).where(User.user_id == payload.user_id))
+            if user is None:
+                raise ValueError("User not found")
+
+            try:
+                self._hasher.verify(user.password_hash, payload.current_password)
+            except VerifyMismatchError as exc:
+                raise ValueError("Current password is incorrect") from exc
+
+            user.password_hash = self._hasher.hash(payload.new_password)
+            user.must_change_password = False
+            session.commit()
+            session.refresh(user)
+
+            return ChangePasswordResponse(user_id=user.user_id)
 
     def provision_temple_admins(
         self,
@@ -110,6 +172,7 @@ class IdentityStore:
                     existing.temple_id = payload.temple_id
                     existing.temple_name = payload.temple_name.strip()
                     existing.password_hash = self._hasher.hash(DEFAULT_ADMIN_PASSWORD)
+                    existing.must_change_password = False
                     continue
 
                 user = User(
@@ -120,6 +183,7 @@ class IdentityStore:
                     password_hash=self._hasher.hash(DEFAULT_ADMIN_PASSWORD),
                     temple_id=payload.temple_id,
                     temple_name=payload.temple_name.strip(),
+                    must_change_password=False,
                 )
                 session.add(user)
                 session.flush()
@@ -149,6 +213,24 @@ class IdentityStore:
                 occupation=user.occupation,
                 temple_id=user.temple_id,
                 temple_name=user.temple_name,
+                must_change_password=user.must_change_password,
+            )
+
+    def get_user_by_contact(self, contact_number: str) -> UserLookupByContactResponse | None:
+        normalized_contact = _normalize_contact_number(contact_number)
+        with SessionLocal() as session:
+            user = session.scalar(select(User).where(User.contact_number == normalized_contact))
+            if user is None:
+                return None
+
+            return UserLookupByContactResponse(
+                user_id=user.user_id,
+                role=user.role,  # type: ignore[arg-type]
+                display_name=user.display_name,
+                contact_number=user.contact_number,
+                temple_id=user.temple_id,
+                temple_name=user.temple_name,
+                must_change_password=user.must_change_password,
             )
 
     def assign_temple_to_devotee(
@@ -282,6 +364,7 @@ class IdentityStore:
                         occupation=item.occupation,
                         temple_id=item.temple_id,
                         temple_name=item.temple_name,
+                        must_change_password=item.must_change_password,
                     )
                     for item in items
                 ],

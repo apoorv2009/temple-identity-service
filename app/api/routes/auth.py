@@ -3,8 +3,11 @@ from fastapi import APIRouter, HTTPException
 from app.schemas.auth import (
     BulkTempleAdminProvisionRequest,
     BulkTempleAdminProvisionResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
     DevoteeTempleAssignmentRequest,
     DevoteeTempleAssignmentResponse,
+    ReferredDevoteeSignUpRequest,
     PushTokenDeactivateRequest,
     PushTokenLookupRequest,
     PushTokenLookupResponse,
@@ -17,6 +20,7 @@ from app.schemas.auth import (
     SignUpRequest,
     SignUpResponse,
     TempleUserLookupResponse,
+    UserLookupByContactResponse,
     UserProfileResponse,
 )
 from app.services.identity import DEFAULT_ADMIN_PASSWORD, identity_store
@@ -38,6 +42,22 @@ async def signin(payload: SignInRequest) -> SignInResponse:
         return identity_store.sign_in(payload)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+
+@router.post("/change-password", response_model=ChangePasswordResponse)
+async def change_password(payload: ChangePasswordRequest) -> ChangePasswordResponse:
+    try:
+        return identity_store.change_password(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/internal/referred-signup", response_model=SignUpResponse)
+async def referred_signup(payload: ReferredDevoteeSignUpRequest) -> SignUpResponse:
+    try:
+        return identity_store.create_referred_devotee(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/refresh")
@@ -81,6 +101,14 @@ async def me() -> dict[str, object]:
 @router.get("/internal/users/{user_id}", response_model=UserProfileResponse)
 async def get_user_profile(user_id: str) -> UserProfileResponse:
     profile = identity_store.get_profile(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return profile
+
+
+@router.get("/internal/user-lookup/by-contact", response_model=UserLookupByContactResponse)
+async def get_user_by_contact(contact_number: str) -> UserLookupByContactResponse:
+    profile = identity_store.get_user_by_contact(contact_number)
     if profile is None:
         raise HTTPException(status_code=404, detail="User not found")
     return profile
